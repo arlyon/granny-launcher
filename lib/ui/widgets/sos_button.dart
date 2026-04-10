@@ -80,7 +80,7 @@ class _SosButtonState extends State<SosButton> {
     }
 
     setState(() => _isCalling = true);
-    unawaited(FlutterRingtonePlayer().playAlarm(looping: false));
+    // unawaited(FlutterRingtonePlayer().playAlarm(looping: false));
 
     // Fire both in parallel: SMS waits for location while call goes out immediately.
     unawaited(_sendLocationSms(number));
