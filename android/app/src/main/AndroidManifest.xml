@@ -53,6 +53,10 @@ android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" andro
             </intent-filter>
         </receiver>
 
+        <receiver
+            android:name=".UpdateReceiver"
+            android:exported="true" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

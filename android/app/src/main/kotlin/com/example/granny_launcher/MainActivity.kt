@@ -10,6 +10,9 @@ import android.provider.Settings
 import android.provider.Telephony
 import android.view.WindowInsets
 import android.view.WindowInsetsController
+import android.app.PendingIntent
+import android.content.pm.PackageInstaller
+import java.io.File
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -25,6 +28,31 @@ class MainActivity : FlutterActivity() {
     }
 
     private var immersiveModeEnabled = false
+
+    private fun installSilently(apkPath: String) {
+        val file = File(apkPath)
+        val packageInstaller = packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+        val sessionId = packageInstaller.createSession(params)
+        val session = packageInstaller.openSession(sessionId)
+
+        file.inputStream().use { inputStream ->
+            session.openWrite("update", 0, file.length()).use { outputStream ->
+                inputStream.copyTo(outputStream)
+                session.fsync(outputStream)
+            }
+        }
+
+        val intent = Intent(this, UpdateReceiver::class.java)
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        val pendingIntent = PendingIntent.getBroadcast(this, 0, intent, flags)
+        session.commit(pendingIntent.intentSender)
+        session.close()
+    }
 
     override fun onResume() {
         super.onResume()
@@ -97,6 +125,19 @@ class MainActivity : FlutterActivity() {
                             result.success(true)
                         } else {
                             result.success(false)
+                        }
+                    }
+                    "installSilently" -> {
+                        val path = call.argument<String>("path")
+                        if (path == null) {
+                            result.error("INVALID", "No path provided", null)
+                            return@setMethodCallHandler
+                        }
+                        try {
+                            installSilently(path)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("INSTALL_FAILED", e.message, null)
                         }
                     }
                     "setStatusBarDisabled" -> {

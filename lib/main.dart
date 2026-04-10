@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/notif_service.dart';
+import 'services/update_service.dart';
 import 'ui/home_screen.dart';
 
 /// The 5 available UI scale steps (applied as textScaleFactor).
@@ -25,6 +26,9 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   uiScaleNotifier.value = prefs.getInt(_kUiScaleKey) ?? 2;
   backgroundImageNotifier.value = prefs.getString(_kBackgroundImageKey);
+
+  // Trigger auto-update check on boot
+  UpdateService().checkForUpdates();
 
   runApp(GrannyLauncherApp(notifPermissionGranted: notifPermissionGranted));
 }

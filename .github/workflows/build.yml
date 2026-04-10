@@ -1,0 +1,131 @@
+name: "Multi-Platform Build"
+
+permissions:
+  contents: write
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  build-android:
+    name: Build Android
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "oracle"
+          java-version: "23"
+
+      - name: Set Up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.5"
+          channel: "stable"
+          cache: true
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/upload-keystore.jks
+
+      - name: Create key.properties
+        run: |
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "storeFile=./upload-keystore.jks" >> android/key.properties
+
+      - name: Build APK
+        run: flutter build apk --dart-define-from-file=env-prod.json --release
+
+      - name: Build App Bundle
+        run: flutter build appbundle --dart-define-from-file=env-prod.json --release
+
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-builds
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build-android, build-windows, build-macos, build-linux]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Extract Version
+        id: extract_version
+        run: |
+          version=$(grep '^version: ' pubspec.yaml | cut -d ' ' -f 2 | tr -d '\r' | cut -d '+' -f 1)
+          echo "VERSION=$version" >> $GITHUB_ENV
+
+      - name: Create Version JSON
+        run: |
+          echo "{\"version\": \"${{ env.VERSION }}\", \"url\": \"https://github.com/${{ github.repository }}/releases/download/latest/app-release.apk\"}" > version.json
+
+      - name: Check if Tag Exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ env.VERSION }}" >/dev/null 2>&1; then
+            echo "TAG_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "TAG_EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      - name: Modify Tag if Exists
+        if: env.TAG_EXISTS == 'true'
+        run: |
+          new_version="${{ env.VERSION }}-build-${{ github.run_number }}"
+          echo "VERSION=$new_version" >> $GITHUB_ENV
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: |
+            artifacts/android-builds/app-release.apk
+            artifacts/android-builds/app-release.aab
+            version.json
+          tag: v${{ env.VERSION }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Release v${{ env.VERSION }}
+          body: |
+            ## Release v${{ env.VERSION }}
+
+            ### Downloads
+            - **Android APK**: app-release.apk
+            - **Android App Bundle**: app-release.aab
+
+            Built from commit: ${{ github.sha }}
+
+      - name: Publish Latest Release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          makeLatest: true
+          tag: latest
+          artifacts: "artifacts/android-builds/app-release.apk,version.json"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          body: "Last built on ${{ github.event.head_commit.timestamp }}"
