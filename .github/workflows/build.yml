@@ -105,8 +105,8 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           artifacts: |
-            artifacts/android-builds/app-release.apk
-            artifacts/android-builds/app-release.aab
+            artifacts/android-builds/flutter-apk/app-release.apk
+            artifacts/android-builds/bundle/release/app-release.aab
             version.json
           tag: v${{ env.VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -126,6 +126,6 @@ jobs:
           allowUpdates: true
           makeLatest: true
           tag: latest
-          artifacts: "artifacts/android-builds/app-release.apk,version.json"
+          artifacts: "artifacts/android-builds/flutter-apk/app-release.apk,version.json"
           token: ${{ secrets.GITHUB_TOKEN }}
           body: "Last built on ${{ github.event.head_commit.timestamp }}"
