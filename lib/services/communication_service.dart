@@ -5,7 +5,11 @@ class CommunicationService {
   static const _channel = MethodChannel('granny_launcher/system');
 
   static Future<void> requestPermissions() async {
-    await [Permission.phone, Permission.sms].request();
+    await [
+      Permission.phone,
+      Permission.sms,
+      Permission.location,
+    ].request();
   }
 
   static Future<int> getMissedCallCount() async {
@@ -23,6 +27,19 @@ class CommunicationService {
       return await _channel.invokeMethod<int>('getUnreadSmsCount') ?? 0;
     } on PlatformException {
       return 0;
+    }
+  }
+
+  static Future<void> sendBackgroundSms(String number, String message) async {
+    if (!await Permission.sms.isGranted) return;
+    try {
+      await _channel.invokeMethod('sendSms', {
+        'number': number,
+        'message': message,
+      });
+    } on PlatformException catch (e) {
+      // ignore: avoid_print
+      print("Native SMS Error: $e");
     }
   }
 

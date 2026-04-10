@@ -11,6 +11,7 @@ import android.provider.Telephony
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.app.PendingIntent
+import android.telephony.SmsManager
 import android.content.pm.PackageInstaller
 import java.io.File
 import io.flutter.embedding.android.FlutterActivity
@@ -52,6 +53,17 @@ class MainActivity : FlutterActivity() {
         val pendingIntent = PendingIntent.getBroadcast(this, 0, intent, flags)
         session.commit(pendingIntent.intentSender)
         session.close()
+    }
+
+    private fun sendDirectSms(number: String, message: String) {
+        val smsManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            this.getSystemService(SmsManager::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            SmsManager.getDefault()
+        }
+        val parts = smsManager.divideMessage(message)
+        smsManager.sendMultipartTextMessage(number, null, parts, null, null)
     }
 
     override fun onResume() {
@@ -175,6 +187,20 @@ class MainActivity : FlutterActivity() {
                             result.success(true)
                         } catch (e: Exception) {
                             result.error("ERROR", e.message, null)
+                        }
+                    }
+                    "sendSms" -> {
+                        val number = call.argument<String>("number")
+                        val message = call.argument<String>("message")
+                        if (number != null && message != null) {
+                            try {
+                                sendDirectSms(number, message)
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.error("SMS_FAILED", e.message, null)
+                            }
+                        } else {
+                            result.error("INVALID_ARGS", "Number or message was null", null)
                         }
                     }
                     "getMissedCallCount" -> {

@@ -10,6 +10,7 @@ import '../services/app_service.dart';
 import '../services/storage_service.dart';
 import 'widgets/contact_card.dart';
 import 'widgets/app_icon_tile.dart';
+import 'widgets/sos_button.dart';
 
 class HomeTab extends StatefulWidget {
   final VoidCallback onAdminRequested;
@@ -104,30 +105,7 @@ class HomeTabState extends State<HomeTab> {
     ).launch();
   }
 
-  Future<void> _callSos() async {
-    final number = _sosNumber;
-    if (number == null || number.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'No SOS number configured. Please enter admin mode to set it up.',
-              style: TextStyle(fontSize: 18),
-            ),
-            backgroundColor: Color(0xFF880000),
-            duration: Duration(seconds: 4),
-          ),
-        );
-      }
-      return;
-    }
-    final uri = Uri.parse('tel:$number');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
-  }
-
-  Future<void> _toggleTorch() async {
+Future<void> _toggleTorch() async {
     try {
       if (_torchOn) {
         await TorchLight.disableTorch();
@@ -246,29 +224,7 @@ class HomeTabState extends State<HomeTab> {
       color: Colors.black,
       child: Row(
         children: [
-          Expanded(
-            child: SizedBox(
-              height: 72,
-              child: ElevatedButton.icon(
-                onPressed: _callSos,
-                icon: const Icon(Icons.warning_rounded, size: 36, color: Colors.white),
-                label: const Text(
-                  'SOS',
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFCC0000),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          Expanded(child: SosButton(sosNumber: _sosNumber)),
           const SizedBox(width: 12),
           SizedBox(
             width: 72,
