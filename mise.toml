@@ -1,0 +1,21 @@
+[tools]
+flutter = "latest"
+android-sdk = "latest"
+
+[tool_alias]
+fastlane = "git@github.com:mollyIV/asdf-fastlane.git"
+
+[tasks.sdkmanager]
+run = [
+    "sdkmanager 'ndk;28.2.13676358'",
+    "sdkmanager 'platforms;android-36'",
+    "sdkmanager 'cmdline-tools;latest'",
+    "sdkmanager 'platform-tools'",
+    "sdkmanager 'build-tools;36.0.0'",
+]
+
+[tasks.release]
+run = [
+    "flutter build appbundle --dart-define-from-file=env-prod.json --release",
+    "cd android && fastlane deploy"
+]
