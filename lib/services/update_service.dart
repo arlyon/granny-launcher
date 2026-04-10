@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -17,8 +18,11 @@ class UpdateService {
       
       if (response.statusCode != 200) return;
 
-      final serverVersion = response.data['version'] as String;
-      final downloadUrl = response.data['url'] as String;
+      final data = (response.data is String
+          ? jsonDecode(response.data as String)
+          : response.data) as Map<String, dynamic>;
+      final serverVersion = data['version'] as String;
+      final downloadUrl = data['url'] as String;
 
       if (_isNewer(serverVersion, info.version)) {
         final tempDir = await getTemporaryDirectory();

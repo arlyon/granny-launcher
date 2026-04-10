@@ -255,7 +255,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildHeader() {
     return GestureDetector(
-      onLongPress: _showPinOverlay,
       child: Container(
         color: const Color(0xFF111111),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
