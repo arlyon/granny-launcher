@@ -441,6 +441,55 @@ class _AdminSettingsState extends State<_AdminSettings> {
     }
   }
 
+  Future<void> _clearDeviceOwner() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF111111),
+        title: const Text('Remove Device Owner?', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'This will remove the app\'s administrative control over the device. '
+          'You may need to manually re-enable it via ADB if you want it back.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFFFFFF00))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove', style: TextStyle(color: Color(0xFFFF4444))),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      final success = await _channel.invokeMethod<bool>('clearDeviceOwner') ?? false;
+      if (success && mounted) {
+        setState(() => _isDeviceOwner = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Device Owner removed successfully'),
+            backgroundColor: Color(0xFF1A3300),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove Device Owner: $e'),
+            backgroundColor: const Color(0xFF880000),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -809,6 +858,9 @@ class _AdminSettingsState extends State<_AdminSettings> {
                       : 'Run: adb shell dpm set-device-owner com.example.granny_launcher/.DeviceAdminReceiver',
                   style: const TextStyle(color: Colors.white38, fontSize: 13),
                 ),
+                trailing: _isDeviceOwner
+                    ? _actionButton('De-admin', _clearDeviceOwner)
+                    : null,
               ),
               if (_isDeviceOwner) ...[
                 const Divider(color: Colors.white12, height: 1),

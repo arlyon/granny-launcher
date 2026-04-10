@@ -169,6 +169,14 @@ class MainActivity : FlutterActivity() {
                     "isDeviceOwner" -> {
                         result.success(dpm.isDeviceOwnerApp(packageName))
                     }
+                    "clearDeviceOwner" -> {
+                        try {
+                            dpm.clearDeviceOwnerApp(packageName)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("ERROR", e.message, null)
+                        }
+                    }
                     "getMissedCallCount" -> {
                         val cursor = contentResolver.query(
                             CallLog.Calls.CONTENT_URI,
