@@ -8,9 +8,11 @@ import '../main.dart' show kUiScales, uiScaleNotifier, backgroundImageNotifier;
 import '../models/app_contact.dart';
 import '../models/pinned_app.dart';
 import '../models/quick_action_intent.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../services/storage_service.dart';
 import '../services/contacts_service.dart';
 import '../services/app_service.dart';
+import '../services/update_service.dart';
 import 'admin/contact_picker.dart';
 import 'admin/app_picker.dart';
 
@@ -223,6 +225,9 @@ class _AdminSettingsState extends State<_AdminSettings> {
   String? _bgImagePath = backgroundImageNotifier.value;
   QuickActionIntent? _phoneIntent;
   QuickActionIntent? _smsIntent;
+  String? _appVersion;
+  bool _isCheckingUpdate = false;
+  String? _updateStatus;
 
   @override
   void initState() {
@@ -252,6 +257,7 @@ class _AdminSettingsState extends State<_AdminSettings> {
       final phoneApp = QuickActionIntent.tryParse(await _storage.getPhoneIntent());
       final isDeviceOwner =
           await _channel.invokeMethod<bool>('isDeviceOwner') ?? false;
+      final packageInfo = await PackageInfo.fromPlatform();
       if (mounted) {
         setState(() {
           _contacts = contacts;
@@ -261,6 +267,7 @@ class _AdminSettingsState extends State<_AdminSettings> {
           _smsIntent = smsApp;
           _phoneIntent = phoneApp;
           _isDeviceOwner = isDeviceOwner;
+          _appVersion = packageInfo.version;
           _loading = false;
         });
       }
@@ -529,6 +536,8 @@ class _AdminSettingsState extends State<_AdminSettings> {
         _buildKioskSection(),
         const SizedBox(height: 24),
         _buildExitSection(),
+        const SizedBox(height: 24),
+        _buildAboutSection(),
         const SizedBox(height: 24),
         _buildChecklist(),
         const SizedBox(height: 40),
@@ -994,6 +1003,76 @@ class _AdminSettingsState extends State<_AdminSettings> {
             RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       child: Text(label),
+    );
+  }
+
+  // ── About / Updates ───────────────────────────────────────────────────────
+
+  Future<void> _checkForUpdates() async {
+    setState(() {
+      _isCheckingUpdate = true;
+      _updateStatus = null;
+    });
+    final status = await UpdateService().checkForUpdates();
+    if (mounted) {
+      setState(() {
+        _isCheckingUpdate = false;
+        _updateStatus = status;
+      });
+    }
+  }
+
+  Widget _buildAboutSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionHeader('About'),
+        _card(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline,
+                    color: Color(0xFFFFFF00), size: 32),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Version ${_appVersion ?? '…'}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (_updateStatus != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          _updateStatus!,
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 13),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                _isCheckingUpdate
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          color: Color(0xFFFFFF00),
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : _actionButton('Check for update', _checkForUpdates),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
