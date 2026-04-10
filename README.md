@@ -1,6 +1,8 @@
 # 👵 Granny Launcher
 **A high-contrast, safety-first Android launcher designed specifically for seniors.**
 
+![Screenshot_2026-04-10-22-56-11-29_ac2371854fcfac2515c562e45fe82b3e](https://github.com/user-attachments/assets/c7a112af-ec76-4245-a38b-6ebe46abda13)
+
 Granny Launcher strips away the complexity of modern smartphones, replacing the "UI labyrinth" with a high-visibility, simplified experience. It focuses on what matters: staying connected, staying safe, and being legible.
 
 ---
