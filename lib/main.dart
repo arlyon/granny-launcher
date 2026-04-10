@@ -1,9 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 import 'services/notif_service.dart';
 import 'services/update_service.dart';
 import 'ui/home_screen.dart';
+
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    try {
+      await UpdateService().checkForUpdates();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  });
+}
 
 /// The 5 available UI scale steps (applied as textScaleFactor).
 const kUiScales = [0.70, 0.85, 1.00, 1.20, 1.40];
@@ -27,8 +40,14 @@ void main() async {
   uiScaleNotifier.value = prefs.getInt(_kUiScaleKey) ?? 2;
   backgroundImageNotifier.value = prefs.getString(_kBackgroundImageKey);
 
-  // Trigger auto-update check on boot
-  UpdateService().checkForUpdates();
+  await Workmanager().initialize(callbackDispatcher);
+  await Workmanager().registerPeriodicTask(
+    'update-check-task',
+    'checkUpdates',
+    frequency: const Duration(hours: 12),
+    constraints: Constraints(networkType: NetworkType.connected),
+    existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+  );
 
   runApp(GrannyLauncherApp(notifPermissionGranted: notifPermissionGranted));
 }
