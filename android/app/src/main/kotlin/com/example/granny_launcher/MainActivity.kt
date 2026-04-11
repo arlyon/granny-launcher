@@ -5,9 +5,14 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Bundle
 import android.provider.CallLog
 import android.provider.Settings
 import android.provider.Telephony
+import android.telecom.TelecomManager
+import android.telephony.PhoneStateListener
+import android.telephony.TelephonyCallback
+import android.telephony.TelephonyManager
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.app.PendingIntent
@@ -29,6 +34,90 @@ class MainActivity : FlutterActivity() {
     }
 
     private var immersiveModeEnabled = false
+    private var callBackLockActive = false
+    private var telephonyListener: Any? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        registerCallStateListener()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterCallStateListener()
+    }
+
+    private fun registerCallStateListener() {
+        val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val callback = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
+                override fun onCallStateChanged(state: Int) {
+                    if (state == TelephonyManager.CALL_STATE_IDLE) {
+                        runOnUiThread { releaseCallBackLock() }
+                    }
+                }
+            }
+            telephonyListener = callback
+            tm.registerTelephonyCallback(mainExecutor, callback)
+        } else {
+            val listener = object : PhoneStateListener() {
+                @Deprecated("Deprecated in Java")
+                override fun onCallStateChanged(state: Int, phoneNumber: String?) {
+                    if (state == TelephonyManager.CALL_STATE_IDLE) {
+                        runOnUiThread { releaseCallBackLock() }
+                    }
+                }
+            }
+            telephonyListener = listener
+            @Suppress("DEPRECATION")
+            tm.listen(listener, PhoneStateListener.LISTEN_CALL_STATE)
+        }
+    }
+
+    private fun unregisterCallStateListener() {
+        val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (telephonyListener as? TelephonyCallback)?.let { tm.unregisterTelephonyCallback(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            (telephonyListener as? PhoneStateListener)?.let {
+                tm.listen(it, PhoneStateListener.LISTEN_NONE)
+            }
+        }
+    }
+
+    private fun checkAndHandleActiveCall() {
+        val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        if (tm.callState != TelephonyManager.CALL_STATE_IDLE) {
+            if (!callBackLockActive) {
+                callBackLockActive = true
+                if (dpm.isDeviceOwnerApp(packageName)) {
+                    dpm.setLockTaskPackages(adminComponent, arrayOf(packageName))
+                    dpm.setLockTaskFeatures(adminComponent, DevicePolicyManager.LOCK_TASK_FEATURE_NONE)
+                }
+                startLockTask()
+            }
+            launchDefaultDialer()
+        }
+    }
+
+    private fun launchDefaultDialer() {
+        val telecomManager = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+        val dialerPackage = telecomManager.defaultDialerPackage
+        val intent = dialerPackage?.let { packageManager.getLaunchIntentForPackage(it) }
+        if (intent != null) {
+            startActivity(intent)
+        }
+    }
+
+    private fun releaseCallBackLock() {
+        if (!callBackLockActive) return
+        callBackLockActive = false
+        stopLockTask()
+        if (immersiveModeEnabled) {
+            enterLockTask()
+        }
+    }
 
     private fun installSilently(apkPath: String) {
         val file = File(apkPath)
@@ -69,6 +158,7 @@ class MainActivity : FlutterActivity() {
     override fun onResume() {
         super.onResume()
         if (immersiveModeEnabled) enterLockTask()
+        checkAndHandleActiveCall()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
