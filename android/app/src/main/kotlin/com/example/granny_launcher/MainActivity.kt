@@ -4,14 +4,13 @@ import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.app.ActivityManager
+import android.media.AudioManager
 import android.os.Build
-import android.os.Bundle
 import android.provider.CallLog
 import android.provider.Settings
 import android.provider.Telephony
 import android.telecom.TelecomManager
-import android.telephony.PhoneStateListener
-import android.telephony.TelephonyCallback
 import android.telephony.TelephonyManager
 import android.view.WindowInsets
 import android.view.WindowInsetsController
@@ -34,90 +33,6 @@ class MainActivity : FlutterActivity() {
     }
 
     private var immersiveModeEnabled = false
-    private var callBackLockActive = false
-    private var telephonyListener: Any? = null
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        registerCallStateListener()
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        unregisterCallStateListener()
-    }
-
-    private fun registerCallStateListener() {
-        val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val callback = object : TelephonyCallback(), TelephonyCallback.CallStateListener {
-                override fun onCallStateChanged(state: Int) {
-                    if (state == TelephonyManager.CALL_STATE_IDLE) {
-                        runOnUiThread { releaseCallBackLock() }
-                    }
-                }
-            }
-            telephonyListener = callback
-            tm.registerTelephonyCallback(mainExecutor, callback)
-        } else {
-            val listener = object : PhoneStateListener() {
-                @Deprecated("Deprecated in Java")
-                override fun onCallStateChanged(state: Int, phoneNumber: String?) {
-                    if (state == TelephonyManager.CALL_STATE_IDLE) {
-                        runOnUiThread { releaseCallBackLock() }
-                    }
-                }
-            }
-            telephonyListener = listener
-            @Suppress("DEPRECATION")
-            tm.listen(listener, PhoneStateListener.LISTEN_CALL_STATE)
-        }
-    }
-
-    private fun unregisterCallStateListener() {
-        val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            (telephonyListener as? TelephonyCallback)?.let { tm.unregisterTelephonyCallback(it) }
-        } else {
-            @Suppress("DEPRECATION")
-            (telephonyListener as? PhoneStateListener)?.let {
-                tm.listen(it, PhoneStateListener.LISTEN_NONE)
-            }
-        }
-    }
-
-    private fun checkAndHandleActiveCall() {
-        val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
-        if (tm.callState != TelephonyManager.CALL_STATE_IDLE) {
-            if (!callBackLockActive) {
-                callBackLockActive = true
-                if (dpm.isDeviceOwnerApp(packageName)) {
-                    dpm.setLockTaskPackages(adminComponent, arrayOf(packageName))
-                    dpm.setLockTaskFeatures(adminComponent, DevicePolicyManager.LOCK_TASK_FEATURE_NONE)
-                }
-                startLockTask()
-            }
-            launchDefaultDialer()
-        }
-    }
-
-    private fun launchDefaultDialer() {
-        val telecomManager = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
-        val dialerPackage = telecomManager.defaultDialerPackage
-        val intent = dialerPackage?.let { packageManager.getLaunchIntentForPackage(it) }
-        if (intent != null) {
-            startActivity(intent)
-        }
-    }
-
-    private fun releaseCallBackLock() {
-        if (!callBackLockActive) return
-        callBackLockActive = false
-        stopLockTask()
-        if (immersiveModeEnabled) {
-            enterLockTask()
-        }
-    }
 
     private fun installSilently(apkPath: String) {
         val file = File(apkPath)
@@ -155,10 +70,67 @@ class MainActivity : FlutterActivity() {
         smsManager.sendMultipartTextMessage(number, null, parts, null, null)
     }
 
+    private fun getCallState(): String? {
+        val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        return when {
+            tm.callState != TelephonyManager.CALL_STATE_IDLE -> "CELLULAR"
+            am.mode == AudioManager.MODE_IN_COMMUNICATION -> "VOIP"
+            else -> null
+        }
+    }
+
+    private fun returnToCall(): Boolean {
+        val tm = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
+        val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+
+        return if (tm.callState != TelephonyManager.CALL_STATE_IDLE) {
+            val telecomManager = getSystemService(Context.TELECOM_SERVICE) as TelecomManager
+            try {
+                telecomManager.showInCallScreen(false)
+                true
+            } catch (e: Exception) {
+                val intent = telecomManager.defaultDialerPackage
+                    ?.let { packageManager.getLaunchIntentForPackage(it) }
+                    ?.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
+                if (intent != null) { startActivity(intent); true } else false
+            }
+        } else if (am.mode == AudioManager.MODE_IN_COMMUNICATION) {
+            val voipPackages = listOf(
+                "com.google.android.apps.tachyon",   // Google Meet (legacy)
+                "com.google.android.apps.meetings",  // Google Meet (new)
+                "com.whatsapp",
+                "us.zoom.videomeetings",
+                "org.telegram.messenger",
+                "com.facebook.orca",
+            )
+            // Use getAppTasks to bring the app's existing task to front rather
+            // than launching a fresh activity (which may open the home screen).
+            val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+            val runningPkg = activityManager.appTasks
+                .mapNotNull { it.taskInfo.baseActivity?.packageName }
+                .firstOrNull { it in voipPackages }
+
+            if (runningPkg != null) {
+                val task = activityManager.appTasks
+                    .first { it.taskInfo.baseActivity?.packageName == runningPkg }
+                task.moveToFront()
+                true
+            } else {
+                // Fallback: plain launch intent
+                voipPackages.firstNotNullOfOrNull { pkg ->
+                    packageManager.getLaunchIntentForPackage(pkg)
+                        ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }?.also { startActivity(it) } != null
+            }
+        } else {
+            false
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         if (immersiveModeEnabled) enterLockTask()
-        checkAndHandleActiveCall()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -316,6 +288,12 @@ class MainActivity : FlutterActivity() {
                         val count = cursor?.count ?: 0
                         cursor?.close()
                         result.success(count)
+                    }
+                    "getCallState" -> {
+                        result.success(getCallState())
+                    }
+                    "returnToCall" -> {
+                        result.success(returnToCall())
                     }
                     else -> result.notImplemented()
                 }

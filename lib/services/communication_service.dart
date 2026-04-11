@@ -43,6 +43,23 @@ class CommunicationService {
     }
   }
 
+  static Future<String?> getCallState() async {
+    if (!await Permission.phone.isGranted) return null;
+    try {
+      return await _channel.invokeMethod<String>('getCallState');
+    } on PlatformException {
+      return null;
+    }
+  }
+
+  static Future<bool> returnToCall() async {
+    try {
+      return await _channel.invokeMethod<bool>('returnToCall') ?? false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
   static Future<({int missedCalls, int unreadSms})> getCounts() async {
     final results = await Future.wait([
       getMissedCallCount(),

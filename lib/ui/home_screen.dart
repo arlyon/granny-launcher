@@ -34,6 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _clockTimer;
   Timer? _batteryTimer;
   Timer? _commsTimer;
+  Timer? _callStateTimer;
+  String? _activeCallType;
 
   @override
   void initState() {
@@ -45,10 +47,17 @@ class _HomeScreenState extends State<HomeScreen> {
     });
     _batteryTimer = Timer.periodic(const Duration(minutes: 1), (_) => _fetchBattery());
     _commsTimer = Timer.periodic(const Duration(minutes: 1), (_) => _fetchCommunicationCounts());
+    _callStateTimer = Timer.periodic(const Duration(seconds: 2), (_) => _fetchCallState());
     _battery.onBatteryStateChanged.listen((s) {
       setState(() => _batteryState = s);
     });
     CommunicationService.requestPermissions().then((_) => _fetchCommunicationCounts());
+  }
+
+  Future<void> _fetchCallState() async {
+    final state = await CommunicationService.getCallState();
+    if (!mounted) return;
+    if (state != _activeCallType) setState(() => _activeCallType = state);
   }
 
   Future<void> _fetchCommunicationCounts() async {
@@ -134,6 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _clockTimer?.cancel();
     _batteryTimer?.cancel();
     _commsTimer?.cancel();
+    _callStateTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -161,6 +171,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: ColoredBox(color: Color(0xAA000000)),
                   ),
                 child!,
+                if (_activeCallType != null)
+                  Positioned.fill(child: _buildCallOverlay()),
               ],
             );
           },
@@ -183,6 +195,54 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildCallOverlay() {
+    return Container(
+      color: Colors.black,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.phone_in_talk, color: Color(0xFFFFFF00), size: 96),
+          const SizedBox(height: 32),
+          const Text(
+            'YOU ARE ON A CALL',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFFFFFF00),
+              fontSize: 36,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 48),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: SizedBox(
+              width: double.infinity,
+              height: 120,
+              child: ElevatedButton(
+                onPressed: () => CommunicationService.returnToCall(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFFF00),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: const Text(
+                  'BACK TO CALL',
+                  style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 36,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
