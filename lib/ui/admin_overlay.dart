@@ -586,13 +586,13 @@ class _AdminSettingsState extends State<_AdminSettings> {
       children: [
         _sectionRow(
           'Pinned Apps',
-          '${_apps.length}/$_kMaxApps',
+          '${_apps.length} apps',
           'Edit',
           _pickApps,
         ),
         const SizedBox(height: 10),
         _apps.isEmpty
-            ? _emptyCard('No apps yet. Tap Edit to add up to $_kMaxApps.')
+            ? _emptyCard('No apps yet. Tap Edit to add some.')
             : _card(
                 Padding(
                   padding: const EdgeInsets.all(12),
@@ -1341,7 +1341,7 @@ class _IntentPickerSheetState extends State<_IntentPickerSheet> {
     final result = await Navigator.push<List<String>>(
       context,
       MaterialPageRoute(
-        builder: (_) => AppPickerPage(selectedPackages: const [], maxCount: 1),
+        builder: (_) => AppPickerPage(selectedPackages: const []),
       ),
     );
     if (!mounted) return;
