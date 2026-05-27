@@ -18,7 +18,6 @@ import 'admin/app_picker.dart';
 
 const _kPin = '1996';
 const _kMaxContacts = 6;
-const _kMaxApps = 8;
 
 class AdminOverlay extends StatefulWidget {
   const AdminOverlay({super.key});
@@ -324,7 +323,6 @@ class _AdminSettingsState extends State<_AdminSettings> {
       MaterialPageRoute(
         builder: (_) => AppPickerPage(
           selectedPackages: currentPkgs,
-          maxCount: _kMaxApps,
         ),
       ),
     );

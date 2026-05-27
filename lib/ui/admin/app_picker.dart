@@ -5,12 +5,10 @@ import '../../services/app_service.dart';
 
 class AppPickerPage extends StatefulWidget {
   final List<String> selectedPackages;
-  final int maxCount;
 
   const AppPickerPage({
     super.key,
     required this.selectedPackages,
-    required this.maxCount,
   });
 
   @override
@@ -69,21 +67,13 @@ class _AppPickerPageState extends State<AppPickerPage> {
   }
 
   void _toggle(String packageName) {
-    if (_selected.contains(packageName)) {
-      setState(() => _selected.remove(packageName));
-    } else if (_selected.length < widget.maxCount) {
-      setState(() => _selected.add(packageName));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Maximum ${widget.maxCount} apps allowed',
-            style: const TextStyle(fontSize: 18),
-          ),
-          backgroundColor: const Color(0xFF333300),
-        ),
-      );
-    }
+    setState(() {
+      if (_selected.contains(packageName)) {
+        _selected.remove(packageName);
+      } else {
+        _selected.add(packageName);
+      }
+    });
   }
 
   @override
@@ -97,7 +87,7 @@ class _AppPickerPageState extends State<AppPickerPage> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Apps  ${_selected.length}/${widget.maxCount}',
+          'Apps  ${_selected.length} selected',
           style: const TextStyle(
             color: Color(0xFFFFFF00),
             fontSize: 22,
