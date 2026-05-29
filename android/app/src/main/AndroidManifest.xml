@@ -41,10 +41,21 @@
         <!-- Notification Listener Service (Phase 3) -->
         <service android:label="notifications" android:name="notification.listener.service.NotificationListener"
 android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true">
-        <intent-filter>
-            <action android:name="android.service.notification.NotificationListenerService" />
-        </intent-filter>
-    </service>
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!-- Our NLS for dismiss/open via MethodChannel -->
+        <service
+            android:name=".MyNotificationListener"
+            android:label="Notification Control"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
         <!-- Device Admin Receiver for Device Owner / Kiosk mode -->
         <receiver
             android:name=".DeviceAdminReceiver"

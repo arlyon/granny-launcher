@@ -1,5 +1,5 @@
-import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:torch_light/torch_light.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:installed_apps/installed_apps.dart';
@@ -96,13 +96,12 @@ class HomeTabState extends State<HomeTab> {
     }
   }
 
+  static const _systemChannel = MethodChannel('granny_launcher/system');
+
   Future<void> _launchApp(PinnedApp app) async {
-    await AndroidIntent(
-      action: 'android.intent.action.MAIN',
-      category: 'android.intent.category.LAUNCHER',
-      package: app.packageName,
-      flags: [0x10000000, 0x00200000], // NEW_TASK | RESET_TASK_IF_NEEDED
-    ).launch();
+    await _systemChannel.invokeMethod('launchApp', {
+      'package': app.packageName,
+    });
   }
 
 Future<void> _toggleTorch() async {

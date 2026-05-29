@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:notification_listener_service/notification_event.dart';
-import 'package:notification_listener_service/notification_listener_service.dart';
 import '../services/notif_service.dart';
 import 'widgets/notif_tile.dart';
 
@@ -52,7 +50,12 @@ class _NotifTabState extends State<NotifTab> {
   }
 
   void _deleteNotification(ServiceNotificationEvent notif) {
-    setState(() => _notifications.remove(notif));
+    NotifService.dismissSystemNotification(notif);
+    setState(() => _notifications.removeWhere((n) => n.id == notif.id));
+  }
+
+  void _openNotification(ServiceNotificationEvent notif) {
+    NotifService.openNotification(notif);
   }
 
   Future<void> _clearAll() async {
@@ -81,7 +84,7 @@ class _NotifTabState extends State<NotifTab> {
             child: const Text(
               'CLEAR ALL',
               style: TextStyle(
-                color: Color(0xFFFF4444),
+                color: Color(0xFFFFFF00),
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -120,6 +123,7 @@ class _NotifTabState extends State<NotifTab> {
                   itemBuilder: (context, index) => NotifTile(
                     notification: _notifications[index],
                     onDelete: () => _deleteNotification(_notifications[index]),
+                    onTap: () => _openNotification(_notifications[index]),
                   ),
                 ),
         ),
@@ -188,12 +192,12 @@ class _NotifTabState extends State<NotifTab> {
         child: ElevatedButton(
           onPressed: _notifications.isEmpty ? null : _clearAll,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF330000),
+            backgroundColor: const Color(0xFF333300),
             disabledBackgroundColor: const Color(0xFF1A1A1A),
             side: BorderSide(
               color: _notifications.isEmpty
                   ? const Color(0xFF333333)
-                  : const Color(0xFFFF4444),
+                  : const Color(0xFFFFFF00),
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -207,7 +211,7 @@ class _NotifTabState extends State<NotifTab> {
                 style: TextStyle(
                   color: _notifications.isEmpty
                       ? Colors.white24
-                      : const Color(0xFFFF4444),
+                      : const Color(0xFFFFFF00),
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -217,13 +221,13 @@ class _NotifTabState extends State<NotifTab> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF4444),
+                    color: const Color(0xFFFFFF00),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '$count',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: Colors.black,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),

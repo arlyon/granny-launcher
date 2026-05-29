@@ -1,5 +1,7 @@
 package com.example.granny_launcher
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -17,6 +19,7 @@ import android.view.WindowInsetsController
 import android.app.PendingIntent
 import android.telephony.SmsManager
 import android.content.pm.PackageInstaller
+import androidx.core.app.NotificationCompat
 import java.io.File
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -68,6 +71,34 @@ class MainActivity : FlutterActivity() {
         }
         val parts = smsManager.divideMessage(message)
         smsManager.sendMultipartTextMessage(number, null, parts, null, null)
+    }
+
+    private fun showNativeNotification(title: String, body: String) {
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val channelId = "granny_alerts"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                channelId, "Granny Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "High priority launcher alerts"
+                enableLights(true)
+                lightColor = android.graphics.Color.YELLOW
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 400, 200, 400)
+            }
+            notificationManager.createNotificationChannel(channel)
+        }
+        val notification = NotificationCompat.Builder(applicationContext, channelId)
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setContentTitle(title)
+            .setContentText(body)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setColor(android.graphics.Color.YELLOW)
+            .setVibrate(longArrayOf(0, 400, 200, 400))
+            .build()
+        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
     }
 
     private fun getCallState(): String? {
@@ -167,6 +198,32 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "granny_launcher/notif_control")
+            .setMethodCallHandler { call, result ->
+                val packageName = call.argument<String>("packageName")
+                val id = call.argument<Int>("id")
+                when (call.method) {
+                    "dismissNotification" -> {
+                        if (packageName != null && id != null) {
+                            MyNotificationListener.instance?.dismissNotification(packageName, id)
+                            result.success(null)
+                        } else {
+                            result.error("INVALID", "Missing packageName or id", null)
+                        }
+                    }
+                    "openNotification" -> {
+                        if (packageName != null && id != null) {
+                            MyNotificationListener.instance?.openNotification(packageName, id)
+                            result.success(null)
+                        } else {
+                            result.error("INVALID", "Missing packageName or id", null)
+                        }
+                    }
+                    else -> result.notImplemented()
+                }
+            }
+
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -294,6 +351,12 @@ class MainActivity : FlutterActivity() {
                     }
                     "returnToCall" -> {
                         result.success(returnToCall())
+                    }
+                    "showNotification" -> {
+                        val title = call.argument<String>("title") ?: ""
+                        val body = call.argument<String>("body") ?: ""
+                        showNativeNotification(title, body)
+                        result.success(null)
                     }
                     else -> result.notImplemented()
                 }
