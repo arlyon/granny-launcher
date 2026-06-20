@@ -106,9 +106,18 @@ class MainActivity : FlutterActivity() {
         val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         return when {
             tm.callState != TelephonyManager.CALL_STATE_IDLE -> "CELLULAR"
-            am.mode == AudioManager.MODE_IN_COMMUNICATION -> "VOIP"
+            am.mode == AudioManager.MODE_IN_COMMUNICATION && isMicrophoneActive(am) -> "VOIP"
             else -> null
         }
+    }
+
+    // A VoIP app sets MODE_IN_COMMUNICATION as soon as a call starts *ringing*,
+    // before it is answered. Requiring an active mic capture distinguishes an
+    // answered (connected) call from one that is merely ringing, so the
+    // "back to call" overlay does not appear for unanswered incoming calls.
+    private fun isMicrophoneActive(am: AudioManager): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return true
+        return am.activeRecordingConfigurations.isNotEmpty()
     }
 
     private fun returnToCall(): Boolean {
